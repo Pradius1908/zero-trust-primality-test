@@ -2,65 +2,34 @@ from flask import Flask
 from flask import render_template
 from flask import request
 
-import csv
+import sys
 import os
 
-from services.prime_engine import generate_rsa
+sys.path.append(
+    os.path.abspath(
+        os.path.join(
+            os.path.dirname(__file__),
+            "..",
+            "src"
+        )
+    )
+)
+
+from flask import Flask
+from flask import render_template
+from flask import request
+
+from backend import (
+    prime_test,
+    generate_rsa,
+    register_user,
+    authenticate_user,
+    get_stats,
+    run_carmichael_demo,
+    benchmark_number
+)
 
 app = Flask(__name__)
-
-DB_FOLDER = "database"
-
-USERS_DB = os.path.join(
-    DB_FOLDER,
-    "users.csv"
-)
-
-CERT_DB = os.path.join(
-    DB_FOLDER,
-    "certificates.csv"
-)
-
-
-def initialize_database():
-
-    os.makedirs(
-        DB_FOLDER,
-        exist_ok=True
-    )
-
-    if not os.path.exists(USERS_DB):
-
-        with open(
-            USERS_DB,
-            "w",
-            newline=""
-        ) as file:
-
-            writer = csv.writer(file)
-
-            writer.writerow([
-                "username"
-            ])
-
-    if not os.path.exists(CERT_DB):
-
-        with open(
-            CERT_DB,
-            "w",
-            newline=""
-        ) as file:
-
-            writer = csv.writer(file)
-
-            writer.writerow([
-                "username",
-                "n",
-                "e"
-            ])
-
-
-initialize_database()
 
 
 @app.route("/")
@@ -79,39 +48,17 @@ def register():
 
     if request.method == "POST":
 
-        username = (
-            request.form["username"]
-            .strip()
-            .lower()
-        )
+        username = request.form["username"]
+
+        register_user(username)
 
         keypair = generate_rsa()
 
-        with open(
-            USERS_DB,
-            "a",
-            newline=""
-        ) as file:
-
-            writer = csv.writer(file)
-
-            writer.writerow([
-                username
-            ])
-
-        with open(
-            CERT_DB,
-            "a",
-            newline=""
-        ) as file:
-
-            writer = csv.writer(file)
-
-            writer.writerow([
-                username,
-                keypair["n"],
-                keypair["e"]
-            ])
+        print("\n====================")
+        print("RSA RESULT")
+        print("====================")
+        print(keypair)
+        print("====================\n")
 
         return render_template(
             "certificate.html",
@@ -130,65 +77,86 @@ def register():
 )
 def login():
 
+    authenticated = None
+    backend_response = None
+
     if request.method == "POST":
 
-        username = (
-            request.form["username"]
-            .strip()
-            .lower()
+        username = request.form["username"]
+
+        result = authenticate_user(
+            username
         )
 
-        found = False
+        print("\n====================")
+        print("AUTH RESULT")
+        print("====================")
+        print(result)
+        print("====================\n")
 
-        with open(
-            CERT_DB,
-            newline=""
-        ) as file:
+        backend_response = result
 
-            reader = csv.DictReader(file)
-
-            for row in reader:
-
-                csv_user = (
-                    row["username"]
-                    .strip()
-                    .lower()
-                )
-
-                if csv_user == username:
-
-                    found = True
-                    break
-
-        return render_template(
-            "login.html",
-            authenticated=found
+        authenticated = result.get(
+            "authenticated",
+            False
         )
 
     return render_template(
-        "login.html"
+        "login.html",
+        authenticated=authenticated,
+        backend_response=backend_response
     )
 
 
 @app.route("/dashboard")
 def dashboard():
 
-    users = []
-
-    with open(
-        CERT_DB,
-        newline=""
-    ) as file:
-
-        reader = csv.DictReader(file)
-
-        for row in reader:
-
-            users.append(row)
+    stats = get_stats()
 
     return render_template(
         "dashboard.html",
-        users=users
+        stats=stats
+    )
+
+
+@app.route(
+    "/prime-test",
+    methods=["GET", "POST"]
+)
+def prime_testing():
+
+    result = None
+
+    if request.method == "POST":
+
+        number = int(
+            request.form["number"]
+        )
+
+        result = prime_test(
+            number
+        )
+
+    return render_template(
+        "prime_test.html",
+        result=result
+    )
+
+
+@app.route("/analytics")
+def analytics():
+
+    stats = get_stats()
+
+    carmichael = run_carmichael_demo()
+
+    benchmark = benchmark_number(561)
+
+    return render_template(
+        "analytics.html",
+        stats=stats,
+        carmichael=carmichael,
+        benchmark=benchmark
     )
 
 

@@ -34,7 +34,7 @@ Authenticate
 
 </form>
 
-{% if authenticated is defined %}
+{% if authenticated is defined and authenticated != None %}
 
     {% if authenticated %}
 
@@ -56,7 +56,24 @@ Authenticate
 
 {% endif %}
 
+{% if backend_response %}
+
+<div class="card bg-secondary mt-4">
+
+<div class="card-body">
+
+<h5>Backend Response</h5>
+
+<pre>{{ backend_response }}</pre>
+
+</div>
+
+</div>
+
+{% endif %}
+
 </div>
 
 </body>
+
 </html>
